@@ -2,7 +2,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 
-const FILE_URL = 'file:///' + path.resolve(__dirname, 'shopping-list.html').replace(/\\/g, '/');
+const FILE_URL = 'file:///' + path.resolve(__dirname, 'index.html').replace(/\\/g, '/');
 
 let browser, page;
 let passed = 0, failed = 0;
@@ -60,7 +60,6 @@ async function runTests() {
   console.log('\n📋 쇼핑 리스트 앱 자동 테스트\n');
   console.log('─'.repeat(50));
 
-  // ── 1. 기본 UI 렌더링 ──────────────────────────────
   console.log('\n[1] 기본 UI 렌더링');
 
   await test('페이지 제목이 "쇼핑 리스트" 이다', async () => {
@@ -83,7 +82,6 @@ async function runTests() {
     assert(items.length === 0, `아이템 ${items.length}개 있음`);
   });
 
-  // ── 2. 아이템 추가 ─────────────────────────────────
   console.log('\n[2] 아이템 추가');
 
   await test('"사과" 추가 → 목록에 표시된다', async () => {
@@ -129,7 +127,6 @@ async function runTests() {
     assert(texts.includes('사과') && texts.includes('우유'), `목록: ${JSON.stringify(texts)}`);
   });
 
-  // ── 3. 체크(완료) 토글 ────────────────────────────
   console.log('\n[3] 체크(완료) 토글');
 
   await test('원형 버튼 클릭 → done 클래스 추가', async () => {
@@ -161,7 +158,6 @@ async function runTests() {
     assert(first.done, '텍스트 클릭 토글 안 됨');
   });
 
-  // ── 4. 아이템 삭제 ─────────────────────────────────
   console.log('\n[4] 아이템 삭제');
 
   await test('✕ 버튼 클릭 → 해당 항목 삭제', async () => {
@@ -178,7 +174,6 @@ async function runTests() {
     assert(texts.length >= 2, `항목 수: ${texts.length}`);
   });
 
-  // ── 5. 완료 항목 일괄 삭제 ────────────────────────
   console.log('\n[5] 완료 항목 일괄 삭제');
 
   await test('"완료 항목 삭제" 버튼 존재', async () => {
@@ -187,7 +182,6 @@ async function runTests() {
   });
 
   await test('완료 항목만 일괄 삭제된다', async () => {
-    // 현재 항목 중 첫 번째를 완료로 표시
     await page.$eval('.item:first-child .item-check', el => el.click());
     const beforeDone = (await getItems()).filter(i => i.done).length;
     const beforeTotal = (await getItems()).length;
@@ -197,7 +191,6 @@ async function runTests() {
     assert(afterItems.length === beforeTotal - beforeDone, `항목 수: ${afterItems.length}`);
   });
 
-  // ── 6. 필터 기능 ───────────────────────────────────
   console.log('\n[6] 필터 기능');
 
   await test('초기에는 "전체" 탭이 활성화', async () => {
@@ -206,7 +199,6 @@ async function runTests() {
   });
 
   await test('"미완료" 탭 → 미완료 항목만 표시', async () => {
-    // 일부 완료 처리
     await addItem('테스트완료항목');
     await page.$eval('.item:first-child .item-check', el => el.click());
     await page.click('[data-filter="active"]');
@@ -226,7 +218,6 @@ async function runTests() {
     assert(active === 'all', `활성 필터: "${active}"`);
   });
 
-  // ── 7. 요약/카운트 표시 ────────────────────────────
   console.log('\n[7] 요약/카운트 표시');
 
   await test('헤더 요약 텍스트가 업데이트된다', async () => {
@@ -239,7 +230,6 @@ async function runTests() {
     assert(count.includes('미완료'), `count="${count}"`);
   });
 
-  // ── 결과 출력 ──────────────────────────────────────
   console.log('\n' + '─'.repeat(50));
   console.log(`\n🏁 결과: ${passed + failed}개 테스트 중 ✅ ${passed}개 통과, ❌ ${failed}개 실패\n`);
   if (failed === 0) {
