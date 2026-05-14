@@ -80,6 +80,7 @@
 
     .btn-add:hover { background: #4338ca; }
     .btn-add:active { background: #3730a3; }
+    .btn-add:disabled { background: #a5b4fc; cursor: not-allowed; }
 
     .filter-bar {
       display: flex;
@@ -248,20 +249,23 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  let items = JSON.parse(localStorage.getItem('shopping-list') || '[]');
+  const SUPABASE_URL = 'https://kwfcwlcupeihcpxkfyjf.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3ZmN3bGN1cGVpaGNweGtmeWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2ODM4NzcsImV4cCI6MjA5NDI1OTg3N30.w8F1Zy1C6EZGguYyqjnUXeORC0yNIuImZFbfSyTSlGo';
+
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let items = [];
   let filter = 'all';
 
-  const listEl     = document.getElementById('list');
-  const inputEl    = document.getElementById('item-input');
-  const summaryEl  = document.getElementById('summary');
-  const countEl    = document.getElementById('count-label');
-  const btnAdd     = document.getElementById('btn-add');
-  const btnClear   = document.getElementById('btn-clear');
-
-  function save() {
-    localStorage.setItem('shopping-list', JSON.stringify(items));
-  }
+  const listEl    = document.getElementById('list');
+  const inputEl   = document.getElementById('item-input');
+  const summaryEl = document.getElementById('summary');
+  const countEl   = document.getElementById('count-label');
+  const btnAdd    = document.getElementById('btn-add');
+  const btnClear  = document.getElementById('btn-clear');
 
   function render() {
     const filtered = items.filter(item =>
@@ -298,26 +302,80 @@
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function addItem() {
+  async function loadItems() {
+    const { data, error } = await db
+      .from('shopping_items')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error) {
+      items = data;
+      render();
+    }
+  }
+
+  async function addItem() {
     const text = inputEl.value.trim();
     if (!text) { inputEl.focus(); return; }
-    items.unshift({ id: Date.now(), text, done: false });
-    inputEl.value = '';
-    save();
-    render();
+    btnAdd.disabled = true;
+    const { data, error } = await db
+      .from('shopping_items')
+      .insert({ text, done: false })
+      .select()
+      .single();
+    btnAdd.disabled = false;
+    if (!error) {
+      items.unshift(data);
+      inputEl.value = '';
+      render();
+    }
     inputEl.focus();
+  }
+
+  async function toggleItem(id) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const { error } = await db
+      .from('shopping_items')
+      .update({ done: !item.done })
+      .eq('id', id);
+    if (!error) {
+      item.done = !item.done;
+      render();
+    }
+  }
+
+  async function deleteItem(id) {
+    const { error } = await db
+      .from('shopping_items')
+      .delete()
+      .eq('id', id);
+    if (!error) {
+      items = items.filter(i => i.id !== id);
+      render();
+    }
+  }
+
+  async function clearDone() {
+    const doneIds = items.filter(i => i.done).map(i => i.id);
+    if (doneIds.length === 0) return;
+    const { error } = await db
+      .from('shopping_items')
+      .delete()
+      .in('id', doneIds);
+    if (!error) {
+      items = items.filter(i => !i.done);
+      render();
+    }
   }
 
   listEl.addEventListener('click', e => {
     const li = e.target.closest('.item');
     if (!li) return;
-    const id = Number(li.dataset.id);
+    const id = li.dataset.id;
     if (e.target.closest('.item-check') || e.target.closest('.item-text')) {
-      const item = items.find(i => i.id === id);
-      if (item) { item.done = !item.done; save(); render(); }
+      toggleItem(id);
     } else if (e.target.closest('.btn-delete')) {
-      items = items.filter(i => i.id !== id);
-      save(); render();
+      deleteItem(id);
     }
   });
 
@@ -333,14 +391,9 @@
     });
   });
 
-  btnClear.addEventListener('click', () => {
-    if (items.some(i => i.done)) {
-      items = items.filter(i => !i.done);
-      save(); render();
-    }
-  });
+  btnClear.addEventListener('click', clearDone);
 
-  render();
+  loadItems();
 </script>
 </body>
 </html>
